@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cradles to Crayons — Neighborhood Insights</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --c2c-navy: #1a2744;
+            --c2c-teal: #2a9d8f;
+            --c2c-gold: #e9c46a;
+            --c2c-coral: #e76f51;
+            --c2c-cream: #f8f5f0;
+            --c2c-dark: #0f1a2e;
+            --sidebar-width: 380px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--c2c-cream);
+            color: var(--c2c-navy);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ── Top Bar ─────────────────────────────── */
+        .top-bar {
+            background: var(--c2c-navy);
+            color: #fff;
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+            position: relative;
+            box-shadow: 0 2px 16px rgba(15,26,46,.35);
+        }
+        .top-bar .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .top-bar .brand .logo-dot {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--c2c-teal), var(--c2c-gold));
+            display: grid; place-items: center;
+            font-weight: 800; font-size: 18px;
+            color: var(--c2c-navy);
+        }
+        .top-bar h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+        .top-bar h1 span { color: var(--c2c-gold); }
+        .top-bar .subtitle {
+            font-size: .78rem;
+            opacity: .6;
+            letter-spacing: .5px;
+        }
+
+        /* ── Layout ──────────────────────────────── */
+        .app-body {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        /* ── Sidebar ─────────────────────────────── */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: #fff;
+            border-right: 1px solid #e0dcd6;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: margin-left .3s ease;
+        }
+        .sidebar.collapsed { margin-left: calc(-1 * var(--sidebar-width)); }
+
+        .sidebar-header {
+            padding: 20px 22px 14px;
+            border-bottom: 1px solid #eae6df;
+        }
+        .sidebar-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .sidebar-header p {
+            font-size: .8rem;
+            color: #6b7280;
+        }
+
+        /* upload zone */
+        .upload-zone {
+            margin: 16px 22px;
+            border: 2px dashed var(--c2c-teal);
+            border-radius: 14px;
+            padding: 26px 18px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .25s;
+            background: rgba(42,157,143,.04);
+        }
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            background: rgba(42,157,143,.12);
+            border-color: var(--c2c-coral);
+        }
+        .upload-zone .icon {
+            font-size: 2.4rem;
+            margin-bottom: 6px;
+        }
+        .upload-zone p { font-size: .82rem; color: #6b7280; margin: 4px 0 0; }
+        .upload-zone strong { color: var(--c2c-teal); }
+        .upload-zone input[type=file] { display: none; }
+
+        .file-loaded-badge {
+            display: none;
+            margin: 0 22px 10px;
+            padding: 10px 14px;
+            background: rgba(42,157,143,.08);
+            border-left: 4px solid var(--c2c-teal);
+            border-radius: 6px;
+            font-size: .78rem;
+            color: var(--c2c-navy);
+        }
+        .file-loaded-badge.show { display: flex; align-items: center; gap: 8px; }
+        .file-loaded-badge .check { color: var(--c2c-teal); font-size: 1.1rem; }
+
+        /* legend */
+        .legend-panel {
+            padding: 14px 22px 10px;
+            border-top: 1px solid #eae6df;
+        }
+        .legend-panel h3 {
+            font-size: .82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9ca3af;
+            margin-bottom: 10px;
+        }
+        .legend-items { display: flex; flex-direction: column; gap: 5px; }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: .8rem;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            transition: background .15s;
+        }
+        .legend-item:hover { background: #f3f0eb; }
+        .legend-swatch {
+            width: 22px; height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,.12);
+            flex-shrink: 0;
+        }
+
+        /* neighborhood list */
+        .neighborhood-list-wrapper {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-top: 1px solid #eae6df;
+        }
+        .list-header {
+            padding: 14px 22px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .list-header h3 {
+            font-size: .82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #9ca3af;
+        }
+        .list-header .count {
+            background: var(--c2c-navy);
+            color: #fff;
+            font-size: .7rem;
+            padding: 2px 9px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .search-bar {
+            margin: 0 22px 10px;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 8px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: .82rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .search-bar input:focus { border-color: var(--c2c-teal); }
+
+        .neighborhood-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 14px 14px;
+        }
+        .nb-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background .15s;
+            font-size: .82rem;
+        }
+        .nb-item:hover { background: #f3f0eb; }
+        .nb-item.active { background: rgba(42,157,143,.12); font-weight: 600; }
+        .nb-dot {
+            width: 12px; height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            border: 1px solid rgba(0,0,0,.1);
+        }
+        .nb-num {
+            font-size: .7rem;
+            color: #9ca3af;
+            min-width: 20px;
+            text-align: right;
+        }
+
+        /* ── Map Area ────────────────────────────── */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #e8e4dd;
+        }
+
+        /* toggle sidebar button */
+        .sidebar-toggle {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 1000;
+            width: 42px; height: 42px;
+            border-radius: 10px;
+            border: 2px solid var(--c2c-teal);
+            background: #fff;
+            box-shadow: 0 2px 12px rgba(0,0,0,.18);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 0;
+            transition: transform .2s, background .2s;
+        }
+        .sidebar-toggle .bar {
+            display: block;
+            width: 20px;
+            height: 2.5px;
+            background: var(--c2c-navy);
+            border-radius: 2px;
+            transition: transform .25s, opacity .25s;
+        }
+        .sidebar-toggle:hover {
+            transform: scale(1.08);
+            background: rgba(42,157,143,.08);
+        }
+        .sidebar-toggle.open .bar:nth-child(1) {
+            transform: translateY(6.5px) rotate(45deg);
+        }
+        .sidebar-toggle.open .bar:nth-child(2) {
+            opacity: 0;
+        }
+        .sidebar-toggle.open .bar:nth-child(3) {
+            transform: translateY(-6.5px) rotate(-45deg);
+        }
+
+        /* stats overlay */
+        .stats-bar {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 800;
+            background: rgba(255,255,255,.92);
+            backdrop-filter: blur(10px);
+            border-radius: 14px;
+            padding: 12px 24px;
+            display: none;
+            gap: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.12);
+        }
+        .stats-bar.show { display: flex; }
+        .stat-item { text-align: center; }
+        .stat-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--c2c-teal);
+        }
+        .stat-label {
+            font-size: .68rem;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        /* Leaflet tooltip override */
+        .neighborhood-label {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-family: 'DM Sans', sans-serif !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: var(--c2c-navy) !important;
+            text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 0 4px #fff;
+            text-align: center !important;
+            padding: 0 !important;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px !important;
+            box-shadow: 0 6px 24px rgba(0,0,0,.18) !important;
+            font-family: 'DM Sans', sans-serif !important;
+        }
+        .leaflet-popup-content {
+            margin: 14px 16px !important;
+            max-height: 320px;
+            overflow-y: auto;
+            font-size: .82rem;
+        }
+        .popup-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .popup-meta {
+            font-size: .72rem;
+            color: #6b7280;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .popup-partners-title {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: #9ca3af;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+        .popup-partner {
+            padding: 4px 0;
+            font-size: .8rem;
+            border-bottom: 1px solid #f3f3f3;
+        }
+        .popup-partner:last-child { border-bottom: none; }
+
+        /* ── Map Label Toggle ────────────────────── */
+        .map-label-toggle {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 800;
+            display: none;
+            background: rgba(255,255,255,.94);
+            backdrop-filter: blur(8px);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.15);
+            padding: 4px;
+            gap: 2px;
+        }
+        .map-label-toggle.show { display: flex; }
+        .map-label-toggle button {
+            border: none;
+            background: transparent;
+            padding: 6px 14px;
+            border-radius: 7px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: .78rem;
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all .18s;
+        }
+        .map-label-toggle button.active {
+            background: var(--c2c-navy);
+            color: #fff;
+        }
+        .map-label-toggle button:hover:not(.active) {
+            background: rgba(0,0,0,.06);
+        }
+
+        /* ── Placeholder / No-Data state ─────────── */
+        .map-placeholder {
+            position: absolute;
+            inset: 0;
+            z-index: 700;
+            background: rgba(248,245,240,.92);
+            backdrop-filter: blur(4px);
+            display: grid;
+            place-items: center;
+            text-align: center;
+            padding: 40px;
+        }
+        .map-placeholder.hidden { display: none; }
+        .map-placeholder .inner { max-width: 380px; }
+        .map-placeholder .big-icon { font-size: 3.5rem; margin-bottom: 12px; }
+        .map-placeholder h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+        }
+        .map-placeholder p { font-size: .88rem; color: #6b7280; }
+
+        /* ── Responsive ──────────────────────────── */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; min-width: 100%; position: absolute; z-index: 900; height: calc(100vh - 60px); }
+            .sidebar.collapsed { margin-left: -100%; }
+            .stats-bar { flex-wrap: wrap; gap: 16px; padding: 10px 18px; }
+        }
+
+        /* scrollbar */
+        .neighborhood-list::-webkit-scrollbar { width: 5px; }
+        .neighborhood-list::-webkit-scrollbar-track { background: transparent; }
+        .neighborhood-list::-webkit-scrollbar-thumb { background: #d1cdc6; border-radius: 10px; }
+
+        .leaflet-popup-content::-webkit-scrollbar { width: 4px; }
+        .leaflet-popup-content::-webkit-scrollbar-track { background: transparent; }
+        .leaflet-popup-content::-webkit-scrollbar-thumb { background: #d1cdc6; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- ═══ Top Bar ═══ -->
+    <div class="top-bar">
+        <div class="brand">
+            <div class="logo-dot">C2C</div>
+            <div>
+                <h1>Cradles to Crayons <span>•</span> Neighborhood Insights</h1>
+            </div>
+        </div>
+        <div class="subtitle">Community Partner Coverage Dashboard</div>
+    </div>
+
+    <!-- ═══ Body ═══ -->
+    <div class="app-body">
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Data Source</h2>
+                <p>Upload the Neighborhood Insights Survey spreadsheet</p>
+            </div>
+
+            <div class="upload-zone" id="uploadZone">
+                <div class="icon">📂</div>
+                <div><strong>Click or drag</strong> your .xlsx file here</div>
+                <p>Cradles_to_Crayons_…xlsx</p>
+                <input type="file" id="fileInput" accept=".xlsx,.xls">
+            </div>
+
+            <div class="file-loaded-badge" id="fileBadge">
+                <span class="check">✓</span>
+                <span id="fileName">—</span>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend-panel" id="legendPanel" style="display:none;">
+                <h3>Coverage Legend</h3>
+                <div class="legend-items" id="legendItems"></div>
+            </div>
+
+            <!-- Neighborhood List -->
+            <div class="neighborhood-list-wrapper" id="listWrapper" style="display:none;">
+                <div class="list-header">
+                    <h3>Neighborhoods</h3>
+                    <span class="count" id="nbCount">0</span>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="nbSearch" placeholder="Search neighborhoods…">
+                </div>
+                <div class="neighborhood-list" id="nbList"></div>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="map-container">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </button>
+            <div class="map-label-toggle" id="labelToggle">
+                <button class="active" data-mode="name">Name</button>
+                <button data-mode="number">Number</button>
+                <button data-mode="none">Hide</button>
+            </div>
+            <div id="map"></div>
+            <div class="map-placeholder" id="mapPlaceholder">
+                <div class="inner">
+                    <div class="big-icon">🗺️</div>
+                    <h2>Welcome</h2>
+                    <p>Upload the <strong>Cradles to Crayons Neighborhood Insights Survey</strong> spreadsheet to visualize community partner coverage across Chicago.</p>
+                </div>
+            </div>
+            <div class="stats-bar" id="statsBar">
+                <div class="stat-item">
+                    <div class="stat-val" id="statNeighborhoods">0</div>
+                    <div class="stat-label">Neighborhoods</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="statMinPartners">0</div>
+                    <div class="stat-label">Min Partners</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="statMaxPartners">0</div>
+                    <div class="stat-label">Max Partners</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="statAvgPartners">0</div>
+                    <div class="stat-label">Avg Partners</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Scripts ═══ -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <script>
+    (function () {
+        "use strict";
+
+        /* ── Color Map ─────────────────────────── */
+        const COLOR_MAP = {
+            "dark red":     { hex: "#991b1e", label: "Very Low (≤6)",   order: 0 },
+            "red":          { hex: "#d32f2f", label: "Low (7)",         order: 1 },
+            "orange":       { hex: "#e8853b", label: "Below Avg (8)",   order: 2 },
+            "light orange": { hex: "#f0a868", label: "Moderate (9)",    order: 3 },
+            "yellow":       { hex: "#dfc64a", label: "Average (10)",    order: 4 },
+            "light green":  { hex: "#8bc34a", label: "Above Avg (11-12)", order: 5 },
+            "green":        { hex: "#4caf50", label: "Good (13-15)",    order: 6 },
+            "dark green":   { hex: "#1b5e20", label: "High (16+)",      order: 7 }
+        };
+
+        /* ── Chicago GeoJSON URLs (with fallbacks) ── */
+        const GEOJSON_URLS = [
+            "https://raw.githubusercontent.com/thisisdaryn/data/master/geo/chicago/Comm_Areas.geojson",
+            "https://data.cityofchicago.org/api/geospatial/cauq-8yn6?method=export&type=GeoJSON"
+        ];
+
+        /* ── DOM refs ──────────────────────────── */
+        const dom = {
+            uploadZone:   document.getElementById("uploadZone"),
+            fileInput:    document.getElementById("fileInput"),
+            fileBadge:    document.getElementById("fileBadge"),
+            fileName:     document.getElementById("fileName"),
+            legendPanel:  document.getElementById("legendPanel"),
+            legendItems:  document.getElementById("legendItems"),
+            listWrapper:  document.getElementById("listWrapper"),
+            nbCount:      document.getElementById("nbCount"),
+            nbSearch:     document.getElementById("nbSearch"),
+            nbList:       document.getElementById("nbList"),
+            mapPlaceholder: document.getElementById("mapPlaceholder"),
+            statsBar:     document.getElementById("statsBar"),
+            sidebar:      document.getElementById("sidebar"),
+            sidebarToggle: document.getElementById("sidebarToggle"),
+            sidebarHeader: document.querySelector(".sidebar-header"),
+        };
+
+        /* ── State ─────────────────────────────── */
+        let map, geoJsonLayer, geoJsonData = null;
+        let neighborhoodData = []; // from Excel
+        let layerByAreaNum = {};   // area_num -> leaflet layer
+        let mapTooltips = [];      // { tooltip, name, number }
+        let labelMode = "name";    // "name" | "number" | "none"
+
+        /* ── Init Map ──────────────────────────── */
+        map = L.map("map", {
+            center: [41.8345, -87.6850],
+            zoom: 11,
+            zoomControl: false,
+            attributionControl: true,
+        });
+        L.control.zoom({ position: "bottomleft" }).addTo(map);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+            subdomains: "abcd",
+            maxZoom: 19,
+        }).addTo(map);
+
+        /* ── Load GeoJSON on start (with fallbacks) ── */
+        async function loadGeoJson() {
+            for (const url of GEOJSON_URLS) {
+                try {
+                    const resp = await fetch(url);
+                    if (!resp.ok) continue;
+                    const data = await resp.json();
+                    if (data && data.features) {
+                        geoJsonData = data;
+                        console.log("GeoJSON loaded from:", url, "Features:", data.features.length);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn("GeoJSON fetch failed for:", url, e.message);
+                }
+            }
+            console.error("All GeoJSON sources failed.");
+            alert("Could not load Chicago map boundaries. Please check your internet connection and refresh.");
+        }
+        loadGeoJson();
+
+        /* ── File Upload Handling ──────────────── */
+        dom.uploadZone.addEventListener("click", () => dom.fileInput.click());
+        dom.fileInput.addEventListener("change", e => {
+            if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+        dom.uploadZone.addEventListener("dragover", e => {
+            e.preventDefault();
+            dom.uploadZone.classList.add("drag-over");
+        });
+        dom.uploadZone.addEventListener("dragleave", () => {
+            dom.uploadZone.classList.remove("drag-over");
+        });
+        dom.uploadZone.addEventListener("drop", e => {
+            e.preventDefault();
+            dom.uploadZone.classList.remove("drag-over");
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            dom.fileName.textContent = file.name;
+            dom.fileBadge.classList.add("show");
+            dom.uploadZone.style.display = "none";
+            dom.sidebarHeader.querySelector("p").textContent = "File loaded successfully";
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const wb = XLSX.read(e.target.result, { type: "array" });
+                    parseSurveySummary(wb);
+                } catch (err) {
+                    alert("Error reading spreadsheet: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        /* ── Parse the "Survey Summary" sheet ──── */
+        function parseSurveySummary(wb) {
+            const ws = wb.Sheets["Survey Summary"];
+            if (!ws) {
+                alert('Sheet "Survey Summary" not found in workbook.');
+                return;
+            }
+
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+            // Find header row (contains "Chicago Neighborhood")
+            let headerIdx = -1;
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const row = rows[i];
+                if (row && row.some(c => String(c).trim() === "Chicago Neighborhood")) {
+                    headerIdx = i;
+                    break;
+                }
+            }
+            if (headerIdx === -1) {
+                alert('Could not find header row with "Chicago Neighborhood".');
+                return;
+            }
+
+            const headers = rows[headerIdx].map(h => String(h).trim());
+            const colIdx = {};
+            headers.forEach((h, i) => { colIdx[h] = i; });
+
+            const nameCol     = colIdx["Chicago Neighborhood"];
+            const partnerNumCol = colIdx["# of Community Partner Coverage"];
+            const partnersCol = colIdx["Community Partners"];
+            const colorCol    = colIdx["Color on the map"];
+            const mapNumCol   = colIdx["# on the map"];
+
+            neighborhoodData = [];
+            for (let i = headerIdx + 1; i < rows.length; i++) {
+                const row = rows[i];
+                const name = String(row[nameCol] || "").trim();
+                const color = String(row[colorCol] || "").trim().toLowerCase();
+                const mapNum = parseInt(row[mapNumCol], 10);
+                const numPartners = parseInt(row[partnerNumCol], 10);
+                const partners = String(row[partnersCol] || "").trim();
+
+                if (!name || !color || isNaN(mapNum)) continue;
+                if (!COLOR_MAP[color]) continue;
+
+                neighborhoodData.push({ name, color, mapNum, numPartners, partners });
+            }
+
+            if (neighborhoodData.length === 0) {
+                alert("No valid neighborhood rows found.");
+                return;
+            }
+
+            neighborhoodData.sort((a, b) => a.name.localeCompare(b.name));
+            renderAll();
+        }
+
+        /* ── Render Everything ─────────────────── */
+        function renderAll() {
+            dom.mapPlaceholder.classList.add("hidden");
+            dom.legendPanel.style.display = "";
+            dom.listWrapper.style.display = "";
+            dom.statsBar.classList.add("show");
+            document.getElementById("labelToggle").classList.add("show");
+
+            renderLegend();
+            renderList();
+            renderStats();
+            renderMap();
+        }
+
+        /* ── Legend ─────────────────────────────── */
+        function renderLegend() {
+            const sorted = Object.entries(COLOR_MAP).sort((a, b) => a[1].order - b[1].order);
+            dom.legendItems.innerHTML = sorted.map(([key, val]) => {
+                const count = neighborhoodData.filter(n => n.color === key).length;
+                return `<div class="legend-item" data-color="${key}">
+                    <div class="legend-swatch" style="background:${val.hex}"></div>
+                    <span>${val.label}</span>
+                    <span style="margin-left:auto;color:#9ca3af;font-size:.72rem">${count}</span>
+                </div>`;
+            }).join("");
+
+            dom.legendItems.querySelectorAll(".legend-item").forEach(el => {
+                el.addEventListener("click", () => {
+                    const c = el.dataset.color;
+                    highlightByColor(c);
+                });
+            });
+        }
+
+        function highlightByColor(color) {
+            if (!geoJsonLayer) return;
+            geoJsonLayer.eachLayer(layer => {
+                const d = layer.feature._nbData;
+                if (!d) { layer.setStyle({ fillOpacity: 0.08 }); return; }
+                layer.setStyle({ fillOpacity: d.color === color ? 0.85 : 0.12 });
+            });
+            setTimeout(() => {
+                geoJsonLayer.eachLayer(layer => {
+                    const d = layer.feature._nbData;
+                    if (d) layer.setStyle({ fillOpacity: 0.72 });
+                    else layer.setStyle({ fillOpacity: 0.08 });
+                });
+            }, 2000);
+        }
+
+        /* ── Neighborhood List ─────────────────── */
+        function renderList() {
+            dom.nbCount.textContent = neighborhoodData.length;
+            buildListItems(neighborhoodData);
+
+            dom.nbSearch.addEventListener("input", () => {
+                const q = dom.nbSearch.value.toLowerCase();
+                const filtered = neighborhoodData.filter(n => n.name.toLowerCase().includes(q));
+                buildListItems(filtered);
+            });
+        }
+
+        function buildListItems(items) {
+            dom.nbList.innerHTML = items.map(n => {
+                const hex = COLOR_MAP[n.color] ? COLOR_MAP[n.color].hex : "#ccc";
+                return `<div class="nb-item" data-area="${n.mapNum}">
+                    <div class="nb-dot" style="background:${hex}"></div>
+                    <span class="nb-num">#${n.mapNum}</span>
+                    <span>${n.name}</span>
+                </div>`;
+            }).join("");
+
+            dom.nbList.querySelectorAll(".nb-item").forEach(el => {
+                el.addEventListener("click", () => {
+                    const area = parseInt(el.dataset.area, 10);
+                    flyToArea(area);
+                });
+            });
+        }
+
+        function flyToArea(areaNum) {
+            const layer = layerByAreaNum[areaNum];
+            if (!layer) return;
+            map.fitBounds(layer.getBounds(), { padding: [60, 60], maxZoom: 14 });
+            layer.openPopup();
+
+            // highlight in list
+            dom.nbList.querySelectorAll(".nb-item").forEach(el => el.classList.remove("active"));
+            const el = dom.nbList.querySelector(`[data-area="${areaNum}"]`);
+            if (el) { el.classList.add("active"); el.scrollIntoView({ block: "nearest" }); }
+        }
+
+        /* ── Stats ─────────────────────────────── */
+        function renderStats() {
+            const nums = neighborhoodData.map(n => n.numPartners).filter(n => !isNaN(n));
+            document.getElementById("statNeighborhoods").textContent = neighborhoodData.length;
+            document.getElementById("statMinPartners").textContent = Math.min(...nums);
+            document.getElementById("statMaxPartners").textContent = Math.max(...nums);
+            document.getElementById("statAvgPartners").textContent = (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1);
+        }
+
+        /* ── Render Map ────────────────────────── */
+        let renderRetries = 0;
+        function renderMap() {
+            if (!geoJsonData) {
+                if (renderRetries++ > 30) {
+                    alert("Map boundary data is still loading. Please wait a moment and try uploading again.");
+                    return;
+                }
+                setTimeout(renderMap, 500);
+                return;
+            }
+            renderRetries = 0;
+
+            // Build lookup by area number
+            const dataByAreaNum = {};
+            neighborhoodData.forEach(n => { dataByAreaNum[n.mapNum] = n; });
+
+            if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+            mapTooltips.forEach(t => map.removeLayer(t.tooltip));
+            mapTooltips = [];
+            layerByAreaNum = {};
+
+            geoJsonLayer = L.geoJSON(geoJsonData, {
+                style: function (feature) {
+                    const areaNum = parseInt(feature.properties.area_numbe || feature.properties.area_num_1, 10);
+                    const d = dataByAreaNum[areaNum];
+                    feature._nbData = d || null;
+
+                    if (d && COLOR_MAP[d.color]) {
+                        return {
+                            fillColor: COLOR_MAP[d.color].hex,
+                            fillOpacity: 0.72,
+                            color: "#fff",
+                            weight: 1.8,
+                            opacity: 1,
+                        };
+                    }
+                    return {
+                        fillColor: "#d6d0c4",
+                        fillOpacity: 0.08,
+                        color: "#bbb",
+                        weight: 1,
+                        opacity: 0.6,
+                    };
+                },
+                onEachFeature: function (feature, layer) {
+                    const areaNum = parseInt(feature.properties.area_numbe || feature.properties.area_num_1, 10);
+                    const d = dataByAreaNum[areaNum];
+                    if (!d) return;
+
+                    layerByAreaNum[areaNum] = layer;
+
+                    // Permanent label
+                    const center = layer.getBounds().getCenter();
+                    const tooltipContent = labelMode === "number" ? String(d.mapNum) : d.name;
+                    const tip = L.tooltip({
+                        permanent: true,
+                        direction: "center",
+                        className: "neighborhood-label",
+                    })
+                    .setContent(tooltipContent)
+                    .setLatLng(center);
+                    if (labelMode !== "none") tip.addTo(map);
+                    mapTooltips.push({ tooltip: tip, name: d.name, number: String(d.mapNum) });
+
+                    // Build popup
+                    const partnerList = d.partners
+                        ? d.partners.split("\n").filter(p => p.trim()).map(p => `<div class="popup-partner">${escapeHtml(p.trim())}</div>`).join("")
+                        : "<em>No partner data</em>";
+
+                    const popupHtml = `
+                        <div class="popup-title">${escapeHtml(d.name)}</div>
+                        <div class="popup-meta">#${d.mapNum} · ${d.numPartners} community partner${d.numPartners !== 1 ? "s" : ""}</div>
+                        <div class="popup-partners-title">Community Partners</div>
+                        ${partnerList}
+                    `;
+                    layer.bindPopup(popupHtml, { maxWidth: 300, maxHeight: 350 });
+
+                    // Hover effects
+                    layer.on("mouseover", function () {
+                        this.setStyle({ weight: 3, color: var_c2c_navy(), fillOpacity: 0.88 });
+                        this.bringToFront();
+                    });
+                    layer.on("mouseout", function () {
+                        geoJsonLayer.resetStyle(this);
+                    });
+                    layer.on("click", function () {
+                        // highlight sidebar
+                        dom.nbList.querySelectorAll(".nb-item").forEach(el => el.classList.remove("active"));
+                        const el = dom.nbList.querySelector(`[data-area="${areaNum}"]`);
+                        if (el) { el.classList.add("active"); el.scrollIntoView({ block: "nearest" }); }
+                    });
+                }
+            }).addTo(map);
+
+            map.fitBounds(geoJsonLayer.getBounds(), { padding: [20, 20] });
+        }
+
+        function var_c2c_navy() { return "#1a2744"; }
+
+        function escapeHtml(str) {
+            const div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /* ── Label Toggle ─────────────────────── */
+        document.getElementById("labelToggle").addEventListener("click", (e) => {
+            const btn = e.target.closest("button[data-mode]");
+            if (!btn) return;
+            labelMode = btn.dataset.mode;
+            document.querySelectorAll("#labelToggle button").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+
+            mapTooltips.forEach(t => {
+                if (labelMode === "none") {
+                    map.removeLayer(t.tooltip);
+                } else {
+                    t.tooltip.setContent(labelMode === "number" ? t.number : t.name);
+                    if (!map.hasLayer(t.tooltip)) t.tooltip.addTo(map);
+                }
+            });
+        });
+
+        /* ── Sidebar Toggle ────────────────────── */
+        dom.sidebarToggle.addEventListener("click", () => {
+            dom.sidebar.classList.toggle("collapsed");
+            dom.sidebarToggle.classList.toggle("open");
+            setTimeout(() => map.invalidateSize(), 350);
+        });
+
+    })();
+    </script>
+</body>
+</html>
